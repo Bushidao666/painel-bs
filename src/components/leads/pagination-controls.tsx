@@ -45,9 +45,9 @@ export function PaginationControls({
   // Gerar array de páginas para exibir
   const getPageNumbers = () => {
     const delta = 2 // Páginas para mostrar antes e depois da atual
-    const range = []
-    const rangeWithDots = []
-    let l
+    const range: number[] = []
+    const rangeWithDots: Array<number | string> = []
+    let l: number | undefined
 
     for (let i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {

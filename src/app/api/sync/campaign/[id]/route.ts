@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const campaignId = params.id
+    const url = new URL(request.url)
+    const campaignId = url.pathname.split('/').slice(-2, -1)[0]
 
     // Buscar todos os leads da campanha
     const { data: leads, error: leadsError } = await supabase

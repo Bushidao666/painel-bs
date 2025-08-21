@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const leadId = params.id
+    const url = new URL(request.url)
+    const leadId = url.pathname.split('/').slice(-2, -1)[0]
 
     // Buscar dados do lead
     const { data: lead, error: leadError } = await supabase
@@ -41,7 +39,7 @@ export async function POST(
           success: whatsappResponse.data?.success || false,
           data: whatsappResponse.data
         })
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erro ao sincronizar WhatsApp:', error)
         syncResults.push({
           service: 'evolution',
@@ -67,7 +65,7 @@ export async function POST(
           success: mailchimpResponse.data?.success || false,
           data: mailchimpResponse.data
         })
-      } catch (error) {
+      } catch (error: any) {
         console.error('Erro ao sincronizar Mailchimp:', error)
         syncResults.push({
           service: 'mailchimp',

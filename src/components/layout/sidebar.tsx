@@ -30,6 +30,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Usuários', href: '/admin/users', icon: UsersRound },
+  { name: 'Suporte', href: '/support', icon: ShieldCheck },
 ]
 
 export function Sidebar() {

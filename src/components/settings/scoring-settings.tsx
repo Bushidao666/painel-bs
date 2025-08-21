@@ -105,7 +105,7 @@ export function ScoringSettings() {
 
   const handleReset = async () => {
     if (confirm('Tem certeza que deseja restaurar as configurações padrão?')) {
-      await resetToDefaults.mutateAsync()
+      await resetToDefaults.mutateAsync(undefined as any)
       setLocalValues({})
     }
   }
@@ -169,7 +169,7 @@ export function ScoringSettings() {
             {needsRecalc && !showRecalcWarning && (
               <Button
                 size="sm"
-                onClick={() => recalculateScores.mutate()}
+                onClick={() => recalculateScores.mutate(undefined)}
                 disabled={recalculateScores.isPending}
               >
                 {recalculateScores.isPending ? (
@@ -383,7 +383,7 @@ export function ScoringSettings() {
         </Button>
         <Button
           variant="secondary"
-          onClick={() => recalculateScores.mutate()}
+          onClick={() => recalculateScores.mutate(undefined)}
           disabled={recalculateScores.isPending || hasChanges}
           title={hasChanges ? 'Salve as alterações antes de recalcular' : 'Recalcular scores de todos os leads'}
         >

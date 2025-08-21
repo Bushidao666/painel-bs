@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     
     if (insertError) {
       // Se for erro de duplicata, apenas pular
-      if (insertError.code === '23505') {
+      if ((insertError as any).code === '23505') {
         console.log(`Duplicate event ignored: ${event.event}`)
         return NextResponse.json({ success: true })
       }
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
               .single()
             
             if (lead) {
-              leadId = lead.id
+              leadId = (lead as any).id
               
               // Verificar se é mensagem de grupo
               const isGroupMessage = remoteJid.includes('@g.us')
@@ -109,9 +109,9 @@ export async function POST(request: NextRequest) {
               if (isGroupMessage) {
                 // Aplicar scoring dinâmico para mensagem em grupo
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: leadId,
+                  p_lead_id: leadId as string,
                   p_event_type: 'whatsapp_group_message',
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
                 
                 // Atualizar última interação
@@ -124,9 +124,9 @@ export async function POST(request: NextRequest) {
               } else {
                 // Aplicar scoring dinâmico para resposta de mensagem
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: leadId,
+                  p_lead_id: leadId as string,
                   p_event_type: 'whatsapp_message_replied',
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
                 
                 // Atualizar última interação e temperatura
@@ -162,15 +162,15 @@ export async function POST(request: NextRequest) {
                 .single()
               
               if (lead) {
-                leadId = lead.id
+                leadId = (lead as any).id
                 
                 const eventType = isGroupMessage ? 'whatsapp_group_message_read' : 'whatsapp_message_read'
                 
                 // Aplicar scoring dinâmico
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: leadId,
+                  p_lead_id: leadId as string,
                   p_event_type: eventType,
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
                 
                 // Atualizar última interação
@@ -207,9 +207,9 @@ export async function POST(request: NextRequest) {
               if (lead) {
                 // Aplicar scoring dinâmico para entrada no grupo
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: lead.id,
+                  p_lead_id: (lead as any).id as string,
                   p_event_type: 'whatsapp_joined_group',
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
                 
                 // Atualizar status
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
                     last_whatsapp_interaction: new Date().toISOString(),
                     temperatura: 'hot' // Atualizar para hot
                   })
-                  .eq('id', lead.id)
+                  .eq('id', (lead as any).id)
                 
                 // Verificar se é um grupo de lançamento específico
                 const { data: launchGroup } = await supabase
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
                   await supabase.rpc('increment', {
                     table_name: 'launch_groups',
                     column_name: 'participant_count',
-                    row_id: launchGroup.id
+                    row_id: (launchGroup as any).id as string
                   })
                 }
               }
@@ -254,9 +254,9 @@ export async function POST(request: NextRequest) {
               if (lead) {
                 // Aplicar scoring dinâmico para saída do grupo
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: lead.id,
+                  p_lead_id: (lead as any).id as string,
                   p_event_type: 'whatsapp_left_group',
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
                 
                 // Atualizar status
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
                   .update({ 
                     in_launch_group: false
                   })
-                  .eq('id', lead.id)
+                  .eq('id', (lead as any).id)
               }
             }
           }
@@ -289,9 +289,9 @@ export async function POST(request: NextRequest) {
               if (presenceStatus?.lastKnownPresence === 'composing') {
                 // Aplicar scoring dinâmico para digitando
                 await supabase.rpc('apply_event_scoring', {
-                  p_lead_id: lead.id,
+                  p_lead_id: (lead as any).id as string,
                   p_event_type: 'whatsapp_typing',
-                  p_campaign_id: lead.campaign_id || null
+                  p_campaign_id: (lead as any).campaign_id || null
                 })
               }
             }
