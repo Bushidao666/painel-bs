@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,33 +63,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Criar o convite
-    const { data: invite, error } = await supabase
-      .from('user_invites')
-      .insert({
-        email,
-        role,
-        invited_by: user.id
-      })
-      .select('id, invite_token')
-      .single()
+    // Enviar convite via Supabase Auth Admin API
+    const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || ''
+    const adminClient = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    if (error) {
-      throw error
+    const { data: inviteRes, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(
+      email,
+      {
+        redirectTo: `${baseUrl}/login`,
+        data: { role, department, invited_by: user.id }
+      }
+    )
+
+    if (inviteErr) {
+      return NextResponse.json({ error: inviteErr.message }, { status: 400 })
     }
 
-    // Gerar URL do convite
-    const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL
-    const inviteUrl = `${baseUrl}/invite/${invite.invite_token}`
+    // Registrar convite para auditoria interna (opcional)
+    await supabase
+      .from('user_invites')
+      .insert({ email, role, invited_by: user.id })
 
-    // Aqui você poderia enviar um email usando Supabase Edge Functions ou outro serviço
-    // Por enquanto, vamos apenas retornar o link
-    
-    return NextResponse.json({ 
-      success: true,
-      inviteUrl,
-      message: 'Convite criado com sucesso'
-    })
+    return NextResponse.json({ success: true, sent: true })
   } catch (error) {
     console.error('Erro ao criar convite:', error)
     return NextResponse.json(

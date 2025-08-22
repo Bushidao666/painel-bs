@@ -6,6 +6,8 @@ import { settingsServerService } from '@/lib/services/settings-server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const url = new URL(request.url)
+    const autoSync = url.searchParams.get('autoSync') === 'true'
     
     // Buscar configurações da Evolution do banco de dados
     const evolutionConfig = await settingsServerService.getEvolutionConfig()
@@ -67,6 +69,16 @@ export async function GET(request: NextRequest) {
       .from('whatsapp_instances')
       .select('*')
       .order('created_at', { ascending: false })
+
+    // Opcionalmente, sincronizar grupos em segundo plano quando solicitado
+    if (autoSync && updatedInstances?.length) {
+      const origin = process.env.NEXT_PUBLIC_BASE_URL || url.origin
+      for (const inst of updatedInstances) {
+        if (inst.status === 'connected' && inst.id) {
+          fetch(`${origin}/api/whatsapp/groups/sync/${inst.id}`, { method: 'POST' }).catch(() => {})
+        }
+      }
+    }
 
     return NextResponse.json(updatedInstances || [])
   } catch (error) {
@@ -205,35 +217,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-// Ao acessar a lista, opcionalmente sincronizar grupos automaticamente se "autoSync" query param estiver presente
-export async function GET(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-    const url = new URL(request.url)
-    const autoSync = url.searchParams.get('autoSync') === 'true'
-
-    const { data: dbInstances } = await supabase
-      .from('whatsapp_instances')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (autoSync && dbInstances?.length) {
-      // Disparar sync de grupos em background por instância conectada
-      const base = process.env.NEXT_PUBLIC_BASE_URL || ''
-      for (const inst of dbInstances) {
-        if (inst.status === 'connected' && inst.id) {
-          fetch(`${base}/api/whatsapp/groups/sync/${inst.id}`, { method: 'POST' }).catch(() => {})
-        }
-      }
-    }
-
-    return NextResponse.json(dbInstances || [])
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao listar instâncias' }, { status: 500 })
-  }
-}
-
 export async function PATCH(request: NextRequest) {
   try {
     const { instanceName } = await request.json()

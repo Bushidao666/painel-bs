@@ -297,6 +297,12 @@ export default function UsersManagementPage() {
                             >
                               Tornar Visualizador
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleRoleChange(user.id, 'support')}
+                              disabled={user.role === 'support'}
+                            >
+                              Tornar Suporte
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => handleToggleStatus(user.id, user.is_active)}
