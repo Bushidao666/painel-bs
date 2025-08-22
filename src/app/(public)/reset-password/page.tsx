@@ -26,24 +26,33 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const code = useMemo(() => searchParams.get('code') || searchParams.get('token') || '', [searchParams])
+  const tokenHash = useMemo(() => searchParams.get('token_hash') || '', [searchParams])
 
   useEffect(() => {
     const run = async () => {
       setVerifying(true)
       setError(null)
       try {
-        if (!code) {
-          setError('Link de recuperação inválido ou expirado.')
-          setVerified(false)
-          return
+        // 1) Se veio como PKCE (code), tenta exchangeCodeForSession
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (!error) {
+            setVerified(true)
+            return
+          }
         }
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          setError(error.message)
-          setVerified(false)
-          return
+
+        // 2) Se veio como token_hash (fallback OTP), tenta verifyOtp
+        if (tokenHash) {
+          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+          if (!error) {
+            setVerified(true)
+            return
+          }
         }
-        setVerified(true)
+
+        setError('Link de recuperação inválido ou expirado.')
+        setVerified(false)
       } catch (err) {
         setError('Não foi possível validar o link de recuperação.')
         setVerified(false)
@@ -53,7 +62,7 @@ export default function ResetPasswordPage() {
     }
     run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code])
+  }, [code, tokenHash])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
