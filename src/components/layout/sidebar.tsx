@@ -34,6 +34,7 @@ const adminNavigation = [
   { name: 'Suporte', href: '/support', icon: ShieldCheck },
   { name: 'Importar Compras', href: '/admin/purchases-import', icon: Upload },
   { name: 'Importar Fórum', href: '/admin/forum-import', icon: Upload },
+  { name: 'Importar Fundadores', href: '/admin/founders-import', icon: Upload },
 ]
 
 export function Sidebar() {
