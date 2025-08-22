@@ -190,8 +190,18 @@ serve(async (req) => {
 
         const toDigits = (v: string | undefined | null) => {
           if (!v) return null
-          const only = v.replace(/\D/g, '')
-          return only || null
+          let digits = v.replace(/\D/g, '')
+          // Aplicar mesma lógica do banco
+          digits = digits.replace(/^0+/, '')
+          // Se começa com 555 e tem 13 dígitos, remover um 5
+          if (digits.length === 13 && digits.startsWith('555')) {
+            digits = '55' + digits.substring(3)
+          }
+          // Se tem 10-11 dígitos sem DDI, prefixar 55
+          if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+            return '55' + digits
+          }
+          return digits || null
         }
 
         const participantIds: string[] = rawParticipants

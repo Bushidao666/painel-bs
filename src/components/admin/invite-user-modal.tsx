@@ -102,6 +102,8 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         return <Shield className="h-4 w-4" />
       case 'viewer':
         return <Eye className="h-4 w-4" />
+      case 'support':
+        return <Shield className="h-4 w-4" />
       default:
         return <User className="h-4 w-4" />
     }
@@ -165,12 +167,19 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
                       <span>Visualizador</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="support">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-amber-600" />
+                      <span>Suporte (apenas área de suporte)</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-zinc-500">
                 {formData.role === 'admin' && 'Acesso total ao sistema, incluindo gerenciamento de usuários'}
                 {formData.role === 'user' && 'Pode criar e gerenciar leads, campanhas e conexões'}
                 {formData.role === 'viewer' && 'Apenas visualização, sem permissão para editar'}
+                {formData.role === 'support' && 'Acesso restrito somente à área de Suporte'}
               </p>
             </div>
 

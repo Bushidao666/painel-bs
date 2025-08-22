@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
   // Primeiro atualizar a sessão
@@ -18,10 +19,41 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Para paths protegidos, verificar autenticação
-  // A verificação real é feita pelo updateSession
-  // que já atualiza os cookies de autenticação
-  
+  // Para paths protegidos, verificar autenticação e role-based access
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll() {}
+      }
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // Obter role do usuário
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const role = profile?.role || 'user'
+
+  // Regra: role 'support' só pode acessar /support (e suas subrotas) e APIs relacionadas
+  const isSupportOnlyArea = request.nextUrl.pathname.startsWith('/support') || request.nextUrl.pathname.startsWith('/api/support')
+  if (role === 'support' && !isSupportOnlyArea) {
+    const supportUrl = new URL('/support', request.url)
+    return NextResponse.redirect(supportUrl)
+  }
+
   return response
 }
 

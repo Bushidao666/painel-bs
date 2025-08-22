@@ -3,12 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { EvolutionV2Service } from '@/lib/services/evolution-v2'
 import { settingsServerService } from '@/lib/services/settings-server'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { groupId: string } }
-) {
+export async function POST(request: NextRequest) {
   try {
-    const { groupId } = params
+    const url = new URL(request.url)
+    const groupId = url.pathname.split('/').slice(-2, -1)[0]
     const { text, mediaUrl, mediaType } = await request.json()
     
     if (!text && !mediaUrl) {

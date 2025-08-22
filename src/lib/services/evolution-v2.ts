@@ -84,29 +84,50 @@ export class EvolutionV2Service {
     }
 
     const url = `${baseUrl}${endpoint}`
-    
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': this.config.apiKey,
-        ...options.headers
+
+    // Retry com backoff leve para lidar com rate limit e 404 de participantes
+    const maxAttempts = 3
+    let attempt = 0
+    let lastErr: any = null
+    while (attempt < maxAttempts) {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': this.config.apiKey,
+          ...options.headers
+        }
+      })
+
+      if (response.ok) {
+        const text = await response.text()
+        if (!text) return {} as T
+        try { return JSON.parse(text) } catch { return text as unknown as T }
       }
-    })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Evolution API error: ${response.status} - ${error}`)
+      const errorText = await response.text()
+      const isParticipantsEndpoint = endpoint.includes('/group/participants')
+      const isRateLimited = response.status === 429 || /rate[- ]?overlimit/i.test(errorText)
+      const isNoParticipants = response.status === 404 && /No participants/i.test(errorText)
+
+      if (isParticipantsEndpoint && isNoParticipants) {
+        // Tratar como lista vazia
+        return [] as unknown as T
+      }
+
+      lastErr = new Error(`Evolution API error: ${response.status} - ${errorText}`)
+
+      if (isRateLimited) {
+        const delay = 500 * (attempt + 1)
+        await new Promise(r => setTimeout(r, delay))
+        attempt++
+        continue
+      }
+
+      break
     }
 
-    const text = await response.text()
-    if (!text) return {} as T
-    
-    try {
-      return JSON.parse(text)
-    } catch {
-      return text as unknown as T
-    }
+    throw lastErr || new Error('Evolution API request failed')
   }
 
   // ========== Instance Management ==========

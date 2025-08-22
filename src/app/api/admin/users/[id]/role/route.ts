@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { role } = await request.json()
@@ -32,8 +29,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
+    // Extrair params da URL
+    const url = new URL(request.url)
+    const id = url.pathname.split('/').slice(-2, -1)[0]
+
     // Não permitir que o admin remova seu próprio status de admin
-    if (params.id === user.id && role !== 'admin') {
+    if (id === user.id && role !== 'admin') {
       return NextResponse.json(
         { error: 'Você não pode remover seu próprio status de admin' },
         { status: 400 }
@@ -44,7 +45,7 @@ export async function PATCH(
     const { error } = await supabase
       .from('user_profiles')
       .update({ role, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       throw error

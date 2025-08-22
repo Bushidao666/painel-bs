@@ -11,6 +11,7 @@ interface UseLeadsPaginatedParams {
   temperatureFilter?: string
   originFilter?: string
   campaignId?: string
+  inGroups?: 'all' | 'in' | 'out'
 }
 
 interface PaginatedLeadsResponse {
@@ -29,12 +30,13 @@ export function useLeadsPaginated({
   searchTerm = '',
   temperatureFilter = 'all',
   originFilter = 'all',
-  campaignId
+  campaignId,
+  inGroups = 'all'
 }: UseLeadsPaginatedParams = {}) {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  const queryKey = ['leads', 'paginated', page, pageSize, searchTerm, temperatureFilter, originFilter, campaignId]
+  const queryKey = ['leads', 'paginated', page, pageSize, searchTerm, temperatureFilter, originFilter, inGroups, campaignId]
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey,
@@ -43,10 +45,24 @@ export function useLeadsPaginated({
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
 
-      // Construir query base
+      // Buscar IDs únicos por telefone via RPC e depois carregar linhas
+      const { data: uniq, error: uniqErr }: any = await supabase.rpc('leads_unique_by_identity_paginated', {
+        p_search: searchTerm || null,
+        p_temperature: temperatureFilter === 'all' ? null : temperatureFilter,
+        p_origin: originFilter === 'all' ? null : originFilter,
+        p_in_groups: inGroups,
+        p_campaign_id: campaignId || null,
+        p_limit: pageSize,
+        p_offset: (page - 1) * pageSize,
+      })
+      if (uniqErr) throw uniqErr
+      const ids = (uniq?.ids || [])
+      const totalCount = uniq?.total || 0
+
       let query = supabase
         .from('leads')
-        .select('*, campaigns(nome)', { count: 'exact' })
+        .select('*, campaigns(nome)')
+        .in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
 
       // Aplicar filtros
       if (searchTerm) {
@@ -65,20 +81,42 @@ export function useLeadsPaginated({
         query = query.eq('campaign_id', campaignId)
       }
 
+      // Filtro em grupos: usa flag derivada
+      if (inGroups === 'in') {
+        query = query.eq('in_launch_group', true)
+      } else if (inGroups === 'out') {
+        query = query.or('in_launch_group.is.null,in_launch_group.eq.false')
+      }
+
       // Aplicar paginação e ordenação
       query = query
         .order('created_at', { ascending: false })
         .range(from, to)
 
-      const { data: leads, error, count } = await query
+      const { data: leads, error } = await query
 
       if (error) throw error
-
-      const totalCount = count || 0
       const totalPages = Math.ceil(totalCount / pageSize)
 
+      // Enriquecer com grupos ativos por lead
+      const leadIds = (leads || []).map((l: any) => l.id)
+      let groupsByLead: Record<string, any[]> = {}
+      if (leadIds.length) {
+        const { data: groups } = await supabase
+          .from('lead_group_memberships')
+          .select('lead_id, group_jid, group_name, is_active')
+          .in('lead_id', leadIds)
+        const activeGroups = (groups || []).filter((g: any) => g.is_active)
+        for (const g of activeGroups) {
+          groupsByLead[g.lead_id] = groupsByLead[g.lead_id] || []
+          groupsByLead[g.lead_id].push({ group_jid: g.group_jid, group_name: g.group_name })
+        }
+      }
+
+      const enriched = (leads || []).map((l: any) => ({ ...l, groups_active: groupsByLead[l.id] || [] }))
+
       return {
-        data: leads || [],
+        data: enriched,
         count: totalCount,
         totalPages,
         currentPage: page,

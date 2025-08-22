@@ -10,6 +10,9 @@ export async function GET(
   try {
     const { name } = await params
     const instanceName = (name || '').trim()
+    if (!instanceName) {
+      return NextResponse.json({ error: 'Instância inválida' }, { status: 400 })
+    }
     const supabase = await createClient()
     
     // Buscar configurações da Evolution do banco de dados

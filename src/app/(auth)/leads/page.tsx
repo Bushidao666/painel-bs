@@ -18,6 +18,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [temperatureFilter, setTemperatureFilter] = useState('all')
   const [originFilter, setOriginFilter] = useState('all')
+  const [inGroupsFilter, setInGroupsFilter] = useState<'all'|'in'|'out'>('all')
 
   const { 
     leads, 
@@ -33,7 +34,8 @@ export default function LeadsPage() {
     pageSize,
     searchTerm,
     temperatureFilter,
-    originFilter
+    originFilter,
+    inGroups: inGroupsFilter
   })
 
   // Ativar real-time
@@ -60,7 +62,7 @@ export default function LeadsPage() {
   // Reset para primeira página quando filtros mudam
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, temperatureFilter, originFilter, pageSize])
+  }, [searchTerm, temperatureFilter, originFilter, inGroupsFilter, pageSize])
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir este lead?')) {
@@ -164,6 +166,7 @@ export default function LeadsPage() {
         onSearch={setSearchTerm}
         onTemperatureFilter={setTemperatureFilter}
         onOriginFilter={setOriginFilter}
+        onInGroupsFilter={setInGroupsFilter}
         onExport={handleExport}
         onAddLead={handleAddLead}
       />

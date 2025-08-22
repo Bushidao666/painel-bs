@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { EvolutionV2Service } from '@/lib/services/evolution-v2'
 import { settingsServerService } from '@/lib/services/settings-server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(
   request: NextRequest,
@@ -85,11 +86,13 @@ export async function POST(
       .update({ last_sync: new Date().toISOString() })
       .eq('id', instanceId)
 
-    return NextResponse.json({
-      success: true,
-      groupsCount: syncedCount,
-      totalGroups: groups.length
-    })
+    // Disparar reconciliação de lançamento em segundo plano via admin client
+    try {
+      const admin = createAdminClient()
+      await admin.functions.invoke('sync-launch-groups', { body: { instanceName: instance.instance_name } })
+    } catch {}
+
+    return NextResponse.json({ success: true, groupsCount: syncedCount, totalGroups: groups.length })
   } catch (error) {
     console.error('Erro ao sincronizar grupos:', error)
     return NextResponse.json(

@@ -65,6 +65,7 @@ export function LeadsTable({ leads, onEdit, onDelete }: LeadsTableProps) {
           <TableRow>
             <TableHead>Nome</TableHead>
             <TableHead>Contato</TableHead>
+            <TableHead>Grupos (ativos)</TableHead>
             <TableHead>Temperatura</TableHead>
             <TableHead>Score</TableHead>
             <TableHead>Campanha</TableHead>
@@ -88,6 +89,22 @@ export function LeadsTable({ leads, onEdit, onDelete }: LeadsTableProps) {
                     {lead.telefone}
                   </div>
                 </div>
+              </TableCell>
+              <TableCell className="text-sm">
+                {Array.isArray((lead as any).groups_active) && (lead as any).groups_active.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 max-w-[280px]">
+                    {(lead as any).groups_active.slice(0, 3).map((g: any, idx: number) => (
+                      <span key={idx} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs border border-blue-200">
+                        {g.group_name || g.group_jid}
+                      </span>
+                    ))}
+                    {(lead as any).groups_active.length > 3 && (
+                      <span className="px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 text-xs border">+{(lead as any).groups_active.length - 3}</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-zinc-400">-</span>
+                )}
               </TableCell>
               <TableCell>{getTemperatureBadge(lead.temperatura)}</TableCell>
               <TableCell>{getScoreBadge(lead.score)}</TableCell>

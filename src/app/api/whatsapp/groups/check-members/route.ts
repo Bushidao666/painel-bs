@@ -3,9 +3,26 @@ import { createClient } from '@/lib/supabase/server'
 import { EvolutionV2Service } from '@/lib/services/evolution-v2'
 import { settingsServerService } from '@/lib/services/settings-server'
 
-function onlyDigits(input: string | null | undefined): string | null {
+function normalizeParticipant(input: string | null | undefined): string | null {
   if (!input) return null
-  const digits = input.replace(/\D/g, '')
+  // casos como wpp-59991939243@unknown.local ou JIDs
+  const base = input.split('@')[0]
+  const cleaned = base.replace(/^wpp[-_]?/i, '')
+  let digits = cleaned.replace(/\D/g, '')
+  
+  // Aplicar mesma lógica do banco: remover zeros à esquerda
+  digits = digits.replace(/^0+/, '')
+  
+  // Se começa com 555 e tem 13 dígitos, remover um 5 (555XXXXXXXXX → 55XXXXXXXXX)
+  if (digits.length === 13 && digits.startsWith('555')) {
+    digits = '55' + digits.substring(3)
+  }
+  
+  // Se tem 10-11 dígitos sem DDI, prefixar 55
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+    return '55' + digits
+  }
+  
   return digits || null
 }
 
@@ -55,19 +72,12 @@ export async function POST(request: NextRequest) {
       let participants: string[] = []
       try {
         const resp = await evolution.getGroupParticipants(instance.instance_name, group.group_jid)
-        // Normalização dos números dos participantes (JID -> dígitos)
+        // Normalização dos números dos participantes (JID -> dígitos canônicos)
         participants = (resp.participants || [])
-          .map((p: any) => onlyDigits(p.id)!)
+          .map((p: any) => normalizeParticipant(p.id)!)
           .filter(Boolean) as string[]
-        // Heurísticas para aumentar match: adicionar variantes com/sem 55 e últimos 11 dígitos
-        const variants = new Set<string>()
-        for (const n of participants) {
-          variants.add(n)
-          variants.add(n.replace(/^0+/, ''))
-          if (/^\d{11}$/.test(n) && !n.startsWith('55')) variants.add('55' + n)
-          if (n.length > 11) variants.add(n.slice(-11))
-        }
-        participants = Array.from(variants)
+        // Remover duplicados (mesmo participante pode aparecer com JIDs diferentes)
+        participants = Array.from(new Set(participants))
       } catch (err) {
         console.error('Erro ao buscar participantes:', err)
         continue
@@ -79,8 +89,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Buscar leads por whatsapp_number (normalizando via função SQL para performance)
-      const { data: leads } = await supabase
-        .rpc('match_leads_by_numbers', { p_numbers: participants })
+      const leads: any[] = []
+      for (const phone of participants) {
+        // Resolve ou cria lead por identidade (phone)
+        let leadId: string | null = null
+        try {
+          const { data: rpc } = await supabase.rpc('find_or_create_lead_by_identity', {
+            p_type: 'phone', p_value: phone, p_name: null, p_source: 'check_members'
+          })
+          if (typeof rpc === 'string') {
+            leadId = rpc
+          }
+        } catch (e) {
+          console.error('find_or_create_lead_by_identity error', e)
+        }
+        if (leadId) {
+          leads.push({ id: leadId, whatsapp_number: phone, telefone: phone, nome: null, campaign_id: null, tags: [] })
+        }
+      }
 
       let updatedCount = 0
       const updatedLeadsForGroup: { id: string, nome: string | null, whatsapp_number: string | null, telefone: string | null, matched_number: string | null }[] = []
@@ -120,6 +146,24 @@ export async function POST(request: NextRequest) {
           console.error('Erro ao aplicar scoring:', e)
         }
 
+        // Garantir membership ativa para este grupo
+        try {
+          await supabase
+            .from('lead_group_memberships')
+            .upsert({
+              lead_id: lead.id,
+              group_id: group.id,
+              group_jid: group.group_jid,
+              is_active: true,
+              joined_at: new Date().toISOString(),
+              left_at: null,
+              source: 'reconcile',
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'lead_id,group_jid' })
+        } catch (mErr) {
+          console.error('Erro ao upsert membership:', mErr)
+        }
+
         updatedCount++
         const leadObj = { 
           id: lead.id, 
@@ -133,6 +177,16 @@ export async function POST(request: NextRequest) {
       }
 
       processed.push({ groupId: group.id, groupJid: group.group_jid, participants: participants.length, updated: updatedCount, leads: updatedLeadsForGroup })
+
+      // Atualizar contagem do grupo
+      try {
+        await supabase
+          .from('launch_groups')
+          .update({ participant_count: participants.length, updated_at: new Date().toISOString() })
+          .eq('id', group.id)
+      } catch (cntErr) {
+        console.error('Erro ao atualizar contagem do grupo:', cntErr)
+      }
     }
 
     // Log geral

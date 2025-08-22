@@ -11,7 +11,8 @@ import {
   QrCode,
   Trash2,
   Users,
-  RefreshCw
+  RefreshCw,
+  Link as LinkIcon
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -42,6 +43,15 @@ export function InstanceCard({
   onViewGroups,
   isConnecting = false
 }: InstanceCardProps) {
+  async function reconfigureWebhook() {
+    try {
+      await fetch('/api/whatsapp/instances', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName: instance.instance_name })
+      })
+    } catch {}
+  }
   const getStatusIcon = () => {
     switch (instance.status) {
       case 'connected':
@@ -155,6 +165,14 @@ export function InstanceCard({
               >
                 <Users className="h-4 w-4 mr-2" />
                 Grupos
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={reconfigureWebhook}
+                className="flex-1"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Reconfigurar Webhook
               </Button>
               <Button 
                 variant="outline" 

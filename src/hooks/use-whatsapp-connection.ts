@@ -157,6 +157,7 @@ export function useWhatsAppConnection(instanceName: string) {
 
   // Buscar status inicial da instância
   useEffect(() => {
+    if (!instanceName) return
     const fetchInstanceStatus = async () => {
       const { data } = await supabase
         .from('whatsapp_instances')
@@ -177,6 +178,7 @@ export function useWhatsAppConnection(instanceName: string) {
 
   // Configurar Realtime subscription para esta instância específica
   useEffect(() => {
+    if (!instanceName) return
     // Criar canal de realtime para mudanças desta instância
     const channel = supabase
       .channel(`whatsapp-instance-${instanceName}`)
@@ -231,7 +233,8 @@ export function useWhatsAppConnection(instanceName: string) {
   const connect = useCallback(async (): Promise<{ qrGenerated: boolean; alreadyConnected?: boolean }> => {
     setIsConnecting(true)
     try {
-      const response = await fetch(`/api/whatsapp/connect/${instanceName}`, {
+      if (!instanceName) throw new Error('Instância inválida')
+      const response = await fetch(`/api/whatsapp/connect/${encodeURIComponent(instanceName)}`, {
         method: 'POST'
       })
       
@@ -270,7 +273,8 @@ export function useWhatsAppConnection(instanceName: string) {
 
   const disconnect = useCallback(async () => {
     try {
-      const response = await fetch(`/api/whatsapp/connect/${instanceName}`, {
+      if (!instanceName) throw new Error('Instância inválida')
+      const response = await fetch(`/api/whatsapp/connect/${encodeURIComponent(instanceName)}`, {
         method: 'DELETE'
       })
       
@@ -288,7 +292,8 @@ export function useWhatsAppConnection(instanceName: string) {
   // Verificação manual de status via Evolution (via rota server-side)
   const checkStatus = useCallback(async () => {
     try {
-      const response = await fetch(`/api/whatsapp/connect/${instanceName}/status`, { method: 'GET' })
+      if (!instanceName) return
+      const response = await fetch(`/api/whatsapp/connect/${encodeURIComponent(instanceName)}/status`, { method: 'GET' })
       if (!response.ok) return
       const data = await response.json()
       if (data?.status) setConnectionStatus(data.status)
@@ -320,13 +325,13 @@ export function useWhatsAppConnection(instanceName: string) {
 
   // Polling leve do status até conectar (fallback ao Realtime)
   useEffect(() => {
-    if (connectionStatus !== 'connected') {
+    if (instanceName && connectionStatus !== 'connected') {
       const interval = setInterval(() => {
         checkStatus()
       }, 4000)
       return () => clearInterval(interval)
     }
-  }, [connectionStatus, checkStatus])
+  }, [instanceName, connectionStatus, checkStatus])
 
   return {
     qrCode,
@@ -393,11 +398,34 @@ export function useWhatsAppGroups(instanceId: string) {
     }
   })
 
+  // Disparar seed de membership quando marcar como grupo de lançamento
+  const toggleLaunchGroupWithSeed = useMutation({
+    mutationFn: async ({ groupId, isLaunchGroup }: { groupId: string, isLaunchGroup: boolean }) => {
+      // Primeiro atualiza a flag
+      await toggleLaunchGroup.mutateAsync({ groupId, isLaunchGroup })
+      // Se ativado, dispara reconciliação pontual
+      if (isLaunchGroup) {
+        const resp = await fetch(`/api/whatsapp/groups/seed/${groupId}`, { method: 'POST' })
+        if (!resp.ok) {
+          const msg = await resp.text().catch(() => '')
+          throw new Error(msg || 'Falha ao iniciar sincronização do grupo')
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-groups', instanceId] })
+      toast.success('Grupo de lançamento sincronizado')
+    },
+    onError: (e: any) => {
+      toast.error(e?.message || 'Erro ao sincronizar grupo')
+    }
+  })
+
   return {
     groups,
     isLoading,
     error,
     syncGroups,
-    toggleLaunchGroup
+    toggleLaunchGroup: toggleLaunchGroupWithSeed
   }
 }

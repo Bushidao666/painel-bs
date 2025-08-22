@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email é obrigatório' }, { status: 400 })
     }
     
-    if (!['admin', 'user', 'viewer'].includes(role)) {
+    if (!['admin', 'user', 'viewer', 'support'].includes(role)) {
       return NextResponse.json({ error: 'Role inválido' }, { status: 400 })
     }
     

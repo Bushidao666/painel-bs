@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,8 +17,9 @@ interface InviteDetails {
   expires_at: string
 }
 
-export default function AcceptInvitePage({ params }: { params: { token: string } }) {
+export default function AcceptInvitePage() {
   const router = useRouter()
+  const params = useParams<{ token: string }>()
   const supabase = createClient()
   const [inviteDetails, setInviteDetails] = useState<InviteDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)

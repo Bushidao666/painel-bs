@@ -15,7 +15,8 @@ import {
   LogOut,
   Zap,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  Upload
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -30,6 +31,9 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Usuários', href: '/admin/users', icon: UsersRound },
+  { name: 'Suporte', href: '/support', icon: ShieldCheck },
+  { name: 'Importar Compras', href: '/admin/purchases-import', icon: Upload },
+  { name: 'Importar Fórum', href: '/admin/forum-import', icon: Upload },
 ]
 
 export function Sidebar() {

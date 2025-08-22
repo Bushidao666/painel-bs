@@ -43,7 +43,7 @@ interface UserProfile {
   id: string
   email: string
   full_name: string
-  role: 'admin' | 'user' | 'viewer'
+  role: 'admin' | 'user' | 'viewer' | 'support'
   department: string | null
   is_active: boolean
   created_at: string
@@ -118,7 +118,8 @@ export default function UsersManagementPage() {
     const variants = {
       admin: { color: 'bg-purple-100 text-purple-800', icon: Shield },
       user: { color: 'bg-blue-100 text-blue-800', icon: User },
-      viewer: { color: 'bg-gray-100 text-gray-800', icon: Eye }
+      viewer: { color: 'bg-gray-100 text-gray-800', icon: Eye },
+      support: { color: 'bg-amber-100 text-amber-800', icon: Eye }
     }
     
     const variant = variants[role as keyof typeof variants] || variants.user

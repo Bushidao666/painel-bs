@@ -15,6 +15,7 @@ interface LeadFiltersProps {
   onSearch?: (value: string) => void
   onTemperatureFilter?: (value: string) => void
   onOriginFilter?: (value: string) => void
+  onInGroupsFilter?: (value: 'all'|'in'|'out') => void
   onAddLead?: () => void
   onExport?: () => void
 }
@@ -23,6 +24,7 @@ export function LeadFilters({
   onSearch,
   onTemperatureFilter,
   onOriginFilter,
+  onInGroupsFilter,
   onAddLead,
   onExport
 }: LeadFiltersProps) {
@@ -38,6 +40,17 @@ export function LeadFilters({
       </div>
       
       <div className="flex gap-2">
+        <Select onValueChange={(v) => onInGroupsFilter?.(v as any)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Grupos de lançamento" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="in">Em grupos</SelectItem>
+            <SelectItem value="out">Fora de grupos</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select onValueChange={onTemperatureFilter}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Temperatura" />

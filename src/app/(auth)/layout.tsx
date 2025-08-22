@@ -2,6 +2,8 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
 import { AuthGuard } from '@/components/auth/auth-guard'
 
+export const dynamic = 'force-dynamic'
+
 export default function AuthLayout({
   children,
 }: {

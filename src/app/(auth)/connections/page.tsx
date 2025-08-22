@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,13 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Plus, Smartphone, Wifi, Users } from 'lucide-react'
+import { Plus, Smartphone, Wifi, Users, RefreshCw, Search, SlidersHorizontal, HelpCircle } from 'lucide-react'
 import { InstanceCard } from '@/components/connections/instance-card'
+import { InstanceDetailDrawer } from '@/components/connections/instance-detail-drawer'
 import { QRCodeModal } from '@/components/connections/qr-code-modal'
-import { GroupsSelector } from '@/components/connections/groups-selector'
-import { Card } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
-import { useWhatsAppInstances, useWhatsAppConnection, useWhatsAppGroups } from '@/hooks/use-whatsapp-connection'
+import { useWhatsAppInstances, useWhatsAppConnection } from '@/hooks/use-whatsapp-connection'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 export default function ConnectionsPage() {
@@ -26,8 +25,33 @@ export default function ConnectionsPage() {
   const [newInstanceName, setNewInstanceName] = useState('')
   const [selectedInstance, setSelectedInstance] = useState<string | null>(null)
   const [qrModalInstance, setQrModalInstance] = useState<string | null>(null)
-  const [viewingGroups, setViewingGroups] = useState<string | null>(null)
-  const [showIdentifyLeads, setShowIdentifyLeads] = useState<{ instanceId: string, instanceName: string } | null>(null)
+  const [detailInstance, setDetailInstance] = useState<any | null>(null)
+  const [detailTab, setDetailTab] = useState<'overview'|'groups'|'activity'|'settings'>('overview')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [launchGroupsCount, setLaunchGroupsCount] = useState<number>(0)
+
+  // Carregar contagem real de grupos de lançamento + realtime
+  const supabase = createClient()
+  useEffect(() => {
+    let mounted = true
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('launch_groups')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_launch_group', true)
+      if (mounted) setLaunchGroupsCount(count || 0)
+    }
+    fetchCount()
+    const channel = supabase
+      .channel('launch-groups-count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'launch_groups' }, () => fetchCount())
+      .subscribe()
+    return () => { mounted = false; supabase.removeChannel(channel) }
+  }, [supabase])
+
+  const filteredInstances = (instances || []).filter((i: any) =>
+    !searchTerm || i.instance_name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   const handleCreateInstance = async () => {
     if (!newInstanceName.trim()) {
@@ -52,21 +76,48 @@ export default function ConnectionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Smartphone className="h-8 w-8" />
-            Conexões WhatsApp
-          </h1>
-          <p className="text-zinc-500">
-            Gerencie suas instâncias e grupos do WhatsApp via Evolution API
-          </p>
+      {/* Header + Toolbar */}
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Smartphone className="h-8 w-8" />
+              Conexões WhatsApp
+            </h1>
+            <p className="text-zinc-500">
+              Gerencie instâncias, grupos e sincronizações com a Evolution API
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => createInstance.reset()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+            <Button onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Instância
+            </Button>
+          </div>
         </div>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Instância
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              className="pl-10 w-72"
+              placeholder="Buscar instância..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button variant="outline">
+            <SlidersHorizontal className="h-4 w-4 mr-2" />
+            Filtros
+          </Button>
+          <Button variant="ghost">
+            <HelpCircle className="h-4 w-4 mr-2" />
+            Ajuda
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -82,7 +133,6 @@ export default function ConnectionsPage() {
             </div>
           </div>
         </div>
-        
         <div className="bg-white rounded-lg border p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
@@ -90,13 +140,10 @@ export default function ConnectionsPage() {
             </div>
             <div>
               <p className="text-sm text-zinc-500">Conectadas</p>
-              <p className="text-2xl font-bold text-green-600">
-                {instances?.filter(i => i.status === 'connected').length || 0}
-              </p>
+              <p className="text-2xl font-bold text-green-600">{instances?.filter(i => i.status === 'connected').length || 0}</p>
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-lg border p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -104,52 +151,42 @@ export default function ConnectionsPage() {
             </div>
             <div>
               <p className="text-sm text-zinc-500">Grupos de Lançamento</p>
-              <p className="text-2xl font-bold text-blue-600">0</p>
+              <p className="text-2xl font-bold text-blue-600">{launchGroupsCount}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Instances Grid */}
-      {!viewingGroups ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {instances?.map((instance) => (
-            <InstanceWithConnection
-              key={instance.id}
-              instance={instance}
-              onDelete={() => handleDeleteInstance(instance.instance_name)}
-              onViewGroups={() => setViewingGroups(instance.id)}
-              onIdentifyLeads={() => setShowIdentifyLeads({ instanceId: instance.id, instanceName: instance.instance_name })}
-            />
-          ))}
-          
-          {instances?.length === 0 && !isLoading && (
-            <div className="col-span-full text-center py-12 bg-white rounded-lg border">
-              <Smartphone className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-              <p className="text-zinc-500">Nenhuma instância criada ainda</p>
-              <Button 
-                className="mt-4"
-                onClick={() => setIsCreateModalOpen(true)}
-              >
-                Criar primeira instância
-              </Button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <GroupsManager
-          instanceId={viewingGroups}
-          onBack={() => setViewingGroups(null)}
-        />
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoading && Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-40 bg-white rounded-lg border animate-pulse" />
+        ))}
+        {!isLoading && filteredInstances.map((instance) => (
+          <InstanceWithConnection
+            key={instance.id}
+            instance={instance}
+            onDelete={() => handleDeleteInstance(instance.instance_name)}
+            onViewGroups={() => { setDetailInstance(instance); setDetailTab('groups') }}
+          />
+        ))}
+        {!isLoading && (filteredInstances.length === 0) && (
+          <div className="col-span-full text-center py-12 bg-white rounded-lg border">
+            <Smartphone className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
+            <p className="text-zinc-500">Nenhuma instância encontrada</p>
+            <Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
+              Criar primeira instância
+            </Button>
+          </div>
+        )}
+      </div>
 
-      {showIdentifyLeads && (
-        <IdentifyLeadsPanel
-          instanceId={showIdentifyLeads.instanceId}
-          instanceName={showIdentifyLeads.instanceName}
-          onClose={() => setShowIdentifyLeads(null)}
-        />
-      )}
+      <InstanceDetailDrawer
+        open={!!detailInstance}
+        onClose={() => setDetailInstance(null)}
+        instance={detailInstance}
+        defaultTab={detailTab}
+      />
 
       {/* Create Instance Modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -187,12 +224,10 @@ function InstanceWithConnection({
   instance, 
   onDelete,
   onViewGroups,
-  onIdentifyLeads
 }: { 
   instance: any
   onDelete: () => void
   onViewGroups: () => void
-  onIdentifyLeads: () => void
 }) {
   const [showQRModal, setShowQRModal] = useState(false)
   const { 
@@ -222,11 +257,7 @@ function InstanceWithConnection({
         onViewGroups={onViewGroups}
         isConnecting={isConnecting}
       />
-      <div className="mt-2 flex gap-2">
-        <Button variant="outline" onClick={onIdentifyLeads}>
-          Identificar Leads nos Grupos
-        </Button>
-      </div>
+      <div className="mt-2 flex gap-2" />
       
       <QRCodeModal
         isOpen={showQRModal}

@@ -13,11 +13,28 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/use-auth'
+import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export function Header() {
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const supabase = createClient()
+  const [role, setRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      if (!user) return
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setRole(data?.role || null)
+    }
+    load()
+  }, [user])
 
   const handleLogout = async () => {
     await signOut()
@@ -43,6 +60,9 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
+        {role === 'support' && (
+          <span className="rounded-full bg-purple-100 text-purple-700 text-xs px-3 py-1 font-medium hidden sm:inline">Suporte</span>
+        )}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center">
