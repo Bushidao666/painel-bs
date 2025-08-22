@@ -27,6 +27,7 @@ export default function ResetPasswordPage() {
 
   const code = useMemo(() => searchParams.get('code') || searchParams.get('token') || '', [searchParams])
   const tokenHash = useMemo(() => searchParams.get('token_hash') || '', [searchParams])
+  const type = useMemo(() => searchParams.get('type') || '', [searchParams])
 
   useEffect(() => {
     const run = async () => {
@@ -44,7 +45,8 @@ export default function ResetPasswordPage() {
 
         // 2) Se veio como token_hash (fallback OTP), tenta verifyOtp
         if (tokenHash) {
-          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+          const otpType = (type === 'invite' ? 'invite' : 'recovery') as 'invite' | 'recovery'
+          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
           if (!error) {
             setVerified(true)
             return
@@ -62,7 +64,7 @@ export default function ResetPasswordPage() {
     }
     run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, tokenHash])
+  }, [code, tokenHash, type])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

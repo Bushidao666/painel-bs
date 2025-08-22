@@ -7,12 +7,10 @@ export async function middleware(request: NextRequest) {
   const response = await updateSession(request)
   
   // Paths públicos que não precisam de autenticação
-  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/']
-  const isPublicPath = publicPaths.some(path => 
-    request.nextUrl.pathname === path || 
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/api/auth')
-  )
+  const publicExact = ['/login', '/signup', '/forgot-password', '/reset-password', '/']
+  const publicPrefixes = ['/invite', '/_next', '/api/auth']
+  const pathname = request.nextUrl.pathname
+  const isPublicPath = publicExact.includes(pathname) || publicPrefixes.some((p) => pathname.startsWith(p))
 
   // Se for path público, permitir acesso
   if (isPublicPath) {

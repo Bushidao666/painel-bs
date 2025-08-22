@@ -78,7 +78,8 @@ export async function POST(request: NextRequest) {
       const { data: inviteRes, error: inviteErr } = await adminClient.auth.admin.inviteUserByEmail(
         email,
         {
-          redirectTo: `${baseUrl}/login`,
+          // Manda o usuário para resetar senha (PKCE/OTP handled by /reset-password)
+          redirectTo: `${baseUrl}/reset-password`,
           data: { role, department, invited_by: user.id }
         }
       )
