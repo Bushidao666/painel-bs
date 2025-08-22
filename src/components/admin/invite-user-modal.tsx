@@ -52,13 +52,18 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         body: JSON.stringify(formData)
       })
 
+      const data = await response.json().catch(() => null)
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Erro ao enviar convite')
+        const msg = (data && (data.error || data.message)) || 'Erro ao enviar convite'
+        throw new Error(msg)
       }
 
-      const data = await response.json()
-      setInviteLink(data.inviteUrl)
+      if (data?.inviteUrl) {
+        setInviteLink(data.inviteUrl)
+      } else {
+        setInviteLink(null)
+        toast.success('Convite enviado por e-mail com sucesso!')
+      }
       
       // Resetar formulário
       setFormData({
@@ -68,7 +73,11 @@ export function InviteUserModal({ isOpen, onClose, onSuccess }: InviteUserModalP
         message: ''
       })
       
-      toast.success('Convite criado com sucesso!')
+      if (!data?.inviteUrl) {
+        // se foi por e-mail, o sucesso já foi indicado
+      } else {
+        toast.success('Convite criado com sucesso!')
+      }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao enviar convite')
     } finally {
