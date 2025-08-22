@@ -35,10 +35,27 @@ export async function POST(request: NextRequest) {
     }
 
     const rows = (parsed.data as any[]).map((r) => r)
-    const { data, error } = await supabase.rpc('sync_forum_members', { arr: rows })
-    if (error) throw error
 
-    return NextResponse.json({ success: true, ...((data && data[0]) || {}) })
+    // Import em lotes para evitar payloads muito grandes
+    const chunkSize = 1000
+    let imported = 0
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize)
+      const { error: upErr } = await supabase.rpc('upsert_forum_members_json', { arr: chunk })
+      if (upErr) {
+        return NextResponse.json({ error: upErr.message, at: { from: i, to: i + chunk.length } }, { status: 400 })
+      }
+      imported += chunk.length
+    }
+
+    // Link após importação
+    const { data: linkData, error: linkErr } = await supabase.rpc('link_forum_members_to_leads')
+    if (linkErr) {
+      return NextResponse.json({ error: linkErr.message, imported }, { status: 400 })
+    }
+
+    const summary = (linkData && linkData[0]) || { linked: 0, created: 0, updated: 0 }
+    return NextResponse.json({ success: true, imported, ...summary })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Erro ao importar membros' }, { status: 500 })
   }

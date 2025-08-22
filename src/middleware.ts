@@ -20,9 +20,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Para paths protegidos, verificar autenticação e role-based access
+  const hasSupabaseEnv = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    hasSupabaseEnv ? process.env.NEXT_PUBLIC_SUPABASE_URL! : '',
+    hasSupabaseEnv ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! : '',
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
