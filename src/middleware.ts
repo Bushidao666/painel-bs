@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   const response = await updateSession(request)
   
   // Paths públicos que não precisam de autenticação
-  const publicPaths = ['/login', '/signup', '/forgot-password', '/']
+  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/']
   const isPublicPath = publicPaths.some(path => 
     request.nextUrl.pathname === path || 
     request.nextUrl.pathname.startsWith('/_next') ||
