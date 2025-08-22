@@ -118,6 +118,9 @@ export function InstanceDetailDrawer({ open, onClose, instance, defaultTab = 'ov
                       if (!instance?.id) return
                       try {
                         setIdentifying(true)
+                        // 1) Disparar sync de grupos (reconciliação background)
+                        await fetch(`/api/whatsapp/groups/sync/${instance.id}`, { method: 'POST' })
+                        // 2) Rodar identificação (usa JID agora)
                         const resp = await fetch('/api/whatsapp/groups/check-members', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },

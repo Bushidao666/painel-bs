@@ -103,11 +103,10 @@ export function useLeadsPaginated({
       let groupsByLead: Record<string, any[]> = {}
       if (leadIds.length) {
         const { data: groups } = await supabase
-          .from('lead_group_memberships')
-          .select('lead_id, group_jid, group_name, is_active')
+          .from('lead_group_memberships_active')
+          .select('lead_id, group_jid, group_name')
           .in('lead_id', leadIds)
-        const activeGroups = (groups || []).filter((g: any) => g.is_active)
-        for (const g of activeGroups) {
+        for (const g of (groups || [])) {
           groupsByLead[g.lead_id] = groupsByLead[g.lead_id] || []
           groupsByLead[g.lead_id].push({ group_jid: g.group_jid, group_name: g.group_name })
         }

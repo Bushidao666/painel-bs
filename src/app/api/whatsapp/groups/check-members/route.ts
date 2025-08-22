@@ -69,34 +69,31 @@ export async function POST(request: NextRequest) {
 
     for (const group of allGroups || []) {
       // Buscar participantes do grupo
-      let participants: string[] = []
+      let participantJids: string[] = []
       try {
         const resp = await evolution.getGroupParticipants(instance.instance_name, group.group_jid)
-        // Normalização dos números dos participantes (JID -> dígitos canônicos)
-        participants = (resp.participants || [])
-          .map((p: any) => normalizeParticipant(p.id)!)
+        // Usar JID bruto para identidade canônica de WhatsApp
+        participantJids = (resp.participants || [])
+          .map((p: any) => (typeof p === 'string' ? p : (p?.id || '')))
           .filter(Boolean) as string[]
-        // Remover duplicados (mesmo participante pode aparecer com JIDs diferentes)
-        participants = Array.from(new Set(participants))
+        participantJids = Array.from(new Set(participantJids))
       } catch (err) {
         console.error('Erro ao buscar participantes:', err)
         continue
       }
 
-      if (participants.length === 0) {
+      if (participantJids.length === 0) {
         processed.push({ groupId: group.id, groupJid: group.group_jid, participants: 0, updated: 0 })
         continue
       }
 
-      // Buscar leads por whatsapp_number (normalizando via função SQL para performance)
+      // Resolver/criar leads por whatsapp_jid (deduplicação canônica)
       const leads: any[] = []
-      for (const phone of participants) {
-        // Resolve ou cria lead por identidade (phone)
+      for (const jid of participantJids) {
+        // Resolve ou cria lead por identidade (whatsapp_jid)
         let leadId: string | null = null
         try {
-          const { data: rpc } = await supabase.rpc('find_or_create_lead_by_identity', {
-            p_type: 'phone', p_value: phone, p_name: null, p_source: 'check_members'
-          })
+          const { data: rpc } = await supabase.rpc('find_or_create_lead_by_identity', { p_type: 'whatsapp_jid', p_value: jid, p_name: null, p_source: 'check_members' })
           if (typeof rpc === 'string') {
             leadId = rpc
           }
@@ -104,7 +101,7 @@ export async function POST(request: NextRequest) {
           console.error('find_or_create_lead_by_identity error', e)
         }
         if (leadId) {
-          leads.push({ id: leadId, whatsapp_number: phone, telefone: phone, nome: null, campaign_id: null, tags: [] })
+          leads.push({ id: leadId, whatsapp_jid: jid, nome: null, campaign_id: null, tags: [] })
         }
       }
 
@@ -113,16 +110,10 @@ export async function POST(request: NextRequest) {
       for (const lead of (leads as any[] || [])) {
         // Atualizar lead: in_launch_group, tags, last_whatsapp_interaction
         const newTags = Array.isArray(lead.tags) ? Array.from(new Set([...(lead.tags || []), 'launch_group'])) : ['launch_group']
-        const normalize = (v: string | null) => v ? v.replace(/\D/g, '') : null
-        const matched = normalize(lead.whatsapp_number) || normalize(lead.telefone) || null
-
         const updatePayload: any = {
           in_launch_group: true,
           tags: newTags,
           last_whatsapp_interaction: new Date().toISOString()
-        }
-        if ((!lead.whatsapp_number || lead.whatsapp_number.trim() === '') && matched) {
-          updatePayload.whatsapp_number = matched
         }
 
         const { error: updErr } = await supabase
@@ -176,7 +167,7 @@ export async function POST(request: NextRequest) {
         updatedLeadsForGroup.push(leadObj)
       }
 
-      processed.push({ groupId: group.id, groupJid: group.group_jid, participants: participants.length, updated: updatedCount, leads: updatedLeadsForGroup })
+      processed.push({ groupId: group.id, groupJid: group.group_jid, participants: participantJids.length, updated: updatedCount, leads: updatedLeadsForGroup })
 
       // Atualizar contagem do grupo
       try {
