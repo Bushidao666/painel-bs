@@ -97,6 +97,7 @@ export default function AcceptInvitePage() {
         email: inviteDetails!.email,
         password: formData.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?redirect=/dashboard` ,
           data: {
             full_name: formData.name,
             role: inviteDetails!.role

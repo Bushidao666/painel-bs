@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   
   // Paths públicos que não precisam de autenticação
   const publicExact = ['/login', '/signup', '/forgot-password', '/reset-password', '/']
-  const publicPrefixes = ['/invite', '/_next', '/api/auth']
+  const publicPrefixes = ['/invite', '/_next', '/api/auth', '/auth/callback']
   const pathname = request.nextUrl.pathname
   const isPublicPath = publicExact.includes(pathname) || publicPrefixes.some((p) => pathname.startsWith(p))
 
@@ -35,7 +35,9 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+    // preservar rota e query
+    const redirectPath = request.nextUrl.pathname + (request.nextUrl.search || '')
+    loginUrl.searchParams.set('redirect', redirectPath)
     return NextResponse.redirect(loginUrl)
   }
 
